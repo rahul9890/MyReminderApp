@@ -79,7 +79,7 @@ android {
 
     namespace "com.myreminderapp"
     defaultConfig {
-        applicationId "com.myreminderapp"
+        applicationId "com.reminderapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -103,6 +103,12 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "reminder-app.apk"
         }
     }
 }

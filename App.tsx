@@ -19,16 +19,28 @@ import { styles } from './src/styles/AppStyles';
 function App() {
   const [todo, setTodo] = useState('');
   const [todoList, setTodoList] = useState<Todo[]>([]);
-  const [intervalHours, setIntervalHours] = useState('1');
+
+  // HMS State
+  const [hours, setHours] = useState('1');
+  const [minutes, setMinutes] = useState('0');
+  const [seconds, setSeconds] = useState('0');
+
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const savedTodos = await AsyncStorage.getItem('todo_list');
-        const savedInterval = await AsyncStorage.getItem('reminder_interval');
+        const savedInterval = await AsyncStorage.getItem('reminder_interval'); // Format "H:M:S"
+
         if (savedTodos) setTodoList(JSON.parse(savedTodos));
-        if (savedInterval) setIntervalHours(savedInterval);
+
+        if (savedInterval) {
+          const parts = savedInterval.split(':');
+          setHours(parts[0] || '0');
+          setMinutes(parts[1] || '0');
+          setSeconds(parts[2] || '0');
+        }
       } catch (e) {
         console.error('Failed to load data', e);
       } finally {
@@ -40,11 +52,12 @@ function App() {
 
   useEffect(() => {
     if (isLoaded) {
+      const intervalStr = `${hours}:${minutes}:${seconds}`;
       AsyncStorage.setItem('todo_list', JSON.stringify(todoList));
-      AsyncStorage.setItem('reminder_interval', intervalHours);
+      AsyncStorage.setItem('reminder_interval', intervalStr);
       scheduleNextReminder();
     }
-  }, [todoList, intervalHours, isLoaded]);
+  }, [todoList, hours, minutes, seconds, isLoaded]);
 
   useEffect(() => {
     setupNotifications();
@@ -73,15 +86,43 @@ function App() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Reminders</Text>
+
         <View style={styles.settingsRow}>
-          <Text style={styles.label}>Remind every</Text>
-          <TextInput
-            style={styles.intervalInput}
-            keyboardType="numeric"
-            value={intervalHours}
-            onChangeText={setIntervalHours}
-          />
-          <Text style={styles.label}>hours</Text>
+          <Text style={styles.label}>Remind me every:</Text>
+          <View style={styles.timeInputContainer}>
+            <View style={styles.timeBox}>
+              <TextInput
+                style={styles.intervalInput}
+                keyboardType="numeric"
+                value={hours}
+                onChangeText={setHours}
+                placeholder="0"
+              />
+              <Text style={styles.timeLabel}>HRS</Text>
+            </View>
+            <Text style={styles.timeSeparator}>:</Text>
+            <View style={styles.timeBox}>
+              <TextInput
+                style={styles.intervalInput}
+                keyboardType="numeric"
+                value={minutes}
+                onChangeText={setMinutes}
+                placeholder="0"
+              />
+              <Text style={styles.timeLabel}>MIN</Text>
+            </View>
+            <Text style={styles.timeSeparator}>:</Text>
+            <View style={styles.timeBox}>
+              <TextInput
+                style={styles.intervalInput}
+                keyboardType="numeric"
+                value={seconds}
+                onChangeText={setSeconds}
+                placeholder="0"
+              />
+              <Text style={styles.timeLabel}>SEC</Text>
+            </View>
+          </View>
         </View>
       </View>
 

@@ -11,19 +11,47 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#EEE',
   },
   title: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-  settingsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  label: { fontSize: 16, color: '#666' },
+  settingsRow: {
+    flexDirection: 'column',
+    marginTop: 15,
+    backgroundColor: '#F9F9F9',
+    padding: 10,
+    borderRadius: 10
+  },
+  label: { fontSize: 14, color: '#666', marginBottom: 5 },
+  timeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  timeBox: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    flex: 1
+  },
   intervalInput: {
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 5,
+    paddingVertical: 8,
     borderRadius: 5,
-    marginHorizontal: 10,
-    width: 60,
+    width: '80%',
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    borderWidth: 1,
+    borderColor: '#DDD'
+  },
+  timeLabel: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 2
+  },
+  timeSeparator: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#CCC',
+    marginTop: -15
   },
   listContent: { paddingHorizontal: 20, paddingTop: 20 },
   inputWrapper: {
