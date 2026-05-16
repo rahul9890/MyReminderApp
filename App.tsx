@@ -1,86 +1,167 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
   View,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
-import notifee, { EventType } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Todo } from './src/types/todo';
-import { setupNotifications, scheduleNextReminder } from './src/services/NotificationService';
-import { TodoItem } from './src/components/TodoItem';
+import { setupNotifications } from './src/services/NotificationService';
+import {
+  syncTodosToOverlay,
+  saveIntervalToOverlay,
+  scheduleAlarm,
+  getTodosFromOverlay,
+  checkOverlayPermission,
+  requestOverlayPermission,
+} from './src/services/OverlayService';
+import { DraggableTodoList } from './src/components/DraggableTodoList';
 import { styles } from './src/styles/AppStyles';
 
 function App() {
   const [todo, setTodo] = useState('');
   const [todoList, setTodoList] = useState<Todo[]>([]);
-
-  // HMS State
   const [hours, setHours] = useState('1');
   const [minutes, setMinutes] = useState('0');
   const [seconds, setSeconds] = useState('0');
-
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const savedTodos = await AsyncStorage.getItem('todo_list');
-        const savedInterval = await AsyncStorage.getItem('reminder_interval'); // Format "H:M:S"
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track if we've done initial scheduling so we don't double-schedule on mount
+  const didSchedule = useRef(false);
 
-        if (savedTodos) setTodoList(JSON.parse(savedTodos));
+  // ── On mount: load data, request permissions, and kick off the alarm chain ─
+  useEffect(() => {
+    (async () => {
+      try {
+        // 1. Check overlay (draw-over-apps) permission — needed for the popup
+        const hasOverlay = await checkOverlayPermission();
+        if (!hasOverlay) requestOverlayPermission();
+
+        // 2. Setup notification channel + permission
+        await setupNotifications();
+
+        // 3. Load saved data
+        const [savedTodos, savedInterval] = await Promise.all([
+          AsyncStorage.getItem('todo_list'),
+          AsyncStorage.getItem('reminder_interval'),
+        ]);
+
+        let loadedTodos: Todo[] = [];
+        if (savedTodos) loadedTodos = JSON.parse(savedTodos);
 
         if (savedInterval) {
-          const parts = savedInterval.split(':');
-          setHours(parts[0] || '0');
-          setMinutes(parts[1] || '0');
-          setSeconds(parts[2] || '0');
+          const [h, m, s] = savedInterval.split(':');
+          setHours(h || '0');
+          setMinutes(m || '0');
+          setSeconds(s || '0');
         }
+
+        // 4. Reconcile with SharedPreferences (user may have ticked tasks done in the overlay)
+        const overlayJson = await getTodosFromOverlay();
+        if (overlayJson !== null) {
+          try {
+            const overlayTodos: Todo[] = JSON.parse(overlayJson);
+            // Trust the overlay list — it may have fewer items (ticked done)
+            if (overlayTodos.length < loadedTodos.length) {
+              loadedTodos = overlayTodos;
+            }
+          } catch (_) {}
+        }
+
+        setTodoList(loadedTodos);
       } catch (e) {
         console.error('Failed to load data', e);
       } finally {
         setIsLoaded(true);
       }
-    };
-    loadData();
+    })();
   }, []);
 
+  // ── After load: push data to native and start the alarm chain once ─────────
   useEffect(() => {
-    if (isLoaded) {
-      const intervalStr = `${hours}:${minutes}:${seconds}`;
+    if (!isLoaded || didSchedule.current) return;
+    didSchedule.current = true;
+    syncTodosToOverlay(todoList);
+    saveIntervalToOverlay(hours, minutes, seconds);
+    scheduleAlarm();
+  }, [isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── When interval changes: update SharedPreferences and reschedule now ─────
+  const prevInterval = useRef(`${hours}:${minutes}:${seconds}`);
+  useEffect(() => {
+    if (!isLoaded) return;
+    const current = `${hours}:${minutes}:${seconds}`;
+    if (current === prevInterval.current) return;
+    prevInterval.current = current;
+    saveIntervalToOverlay(hours, minutes, seconds);
+    scheduleAlarm();
+  }, [hours, minutes, seconds, isLoaded]);
+
+  // ── Debounced persist of todos to AsyncStorage ─────────────────────────────
+  useEffect(() => {
+    if (!isLoaded) return;
+    // Sync overlay immediately (lightweight SharedPreferences write)
+    syncTodosToOverlay(todoList);
+    // Debounce the heavier AsyncStorage write
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
       AsyncStorage.setItem('todo_list', JSON.stringify(todoList));
-      AsyncStorage.setItem('reminder_interval', intervalStr);
-      scheduleNextReminder();
-    }
-  }, [todoList, hours, minutes, seconds, isLoaded]);
+    }, 400);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [todoList, isLoaded]);
 
+  // ── Persist interval to AsyncStorage (debounced) ───────────────────────────
   useEffect(() => {
-    setupNotifications();
+    if (!isLoaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      AsyncStorage.setItem('reminder_interval', `${hours}:${minutes}:${seconds}`);
+    }, 400);
+  }, [hours, minutes, seconds, isLoaded]);
 
-    const unsubscribe = notifee.onForegroundEvent(({ type }) => {
-      if (type === EventType.DISMISSED || type === EventType.PRESS) {
-        scheduleNextReminder();
+  // ── Re-sync when app comes back to foreground (overlay may have changed data)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async state => {
+      if (state === 'active') {
+        const overlayJson = await getTodosFromOverlay();
+        if (overlayJson === null) return;
+        try {
+          const overlayTodos: Todo[] = JSON.parse(overlayJson);
+          setTodoList(prev => {
+            if (overlayTodos.length < prev.length) return overlayTodos;
+            return prev;
+          });
+        } catch (_) {}
       }
     });
-
-    return () => unsubscribe();
+    return () => sub.remove();
   }, []);
 
-  const addTodo = () => {
-    if (todo.trim().length > 0) {
-      setTodoList([...todoList, { id: Date.now().toString(), text: todo }]);
-      setTodo('');
-    }
-  };
+  // ── Todo mutations ─────────────────────────────────────────────────────────
+  const addTodo = useCallback(() => {
+    const trimmed = todo.trim();
+    if (!trimmed) return;
+    setTodoList(prev => [...prev, { id: Date.now().toString(), text: trimmed }]);
+    setTodo('');
+  }, [todo]);
 
-  const removeTodo = (id: string) => {
-    setTodoList(todoList.filter((item) => item.id !== id));
-  };
+  const removeTodo = useCallback((id: string) => {
+    setTodoList(prev => prev.filter(item => item.id !== id));
+  }, []);
+
+  const editTodo = useCallback((id: string, text: string) => {
+    setTodoList(prev => prev.map(item => item.id === id ? { ...item, text } : item));
+  }, []);
+
+  const reorderTodos = useCallback((newList: Todo[]) => {
+    setTodoList(newList);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -126,13 +207,11 @@ function App() {
         </View>
       </View>
 
-      <FlatList
-        data={todoList}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TodoItem item={item} onRemove={removeTodo} />
-        )}
-        contentContainerStyle={styles.listContent}
+      <DraggableTodoList
+        todos={todoList}
+        onReorder={reorderTodos}
+        onRemove={removeTodo}
+        onEdit={editTodo}
       />
 
       <KeyboardAvoidingView
@@ -141,9 +220,11 @@ function App() {
       >
         <TextInput
           style={styles.input}
-          placeholder={'Write a task'}
+          placeholder="Write a task"
           value={todo}
-          onChangeText={(text) => setTodo(text)}
+          onChangeText={setTodo}
+          onSubmitEditing={addTodo}
+          returnKeyType="done"
         />
         <TouchableOpacity onPress={addTodo}>
           <View style={styles.addWrapper}>

@@ -5,15 +5,11 @@
 import { AppRegistry } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
-import notifee, { EventType } from '@notifee/react-native';
-import { scheduleNextReminder } from './src/services/NotificationService';
 
-// Background event handler
-notifee.onBackgroundEvent(async ({ type, detail }) => {
-  if (type === EventType.DISMISSED || type === EventType.PRESS) {
-    // Reschedule the next reminder when the current one is dealt with
-    await scheduleNextReminder();
-  }
-});
+// Background events from notifee are no longer needed for rescheduling —
+// the native ReminderReceiver self-reschedules on every alarm tick.
+// Keep the handler registered so notifee doesn't warn about missing it.
+import notifee from '@notifee/react-native';
+notifee.onBackgroundEvent(async () => {});
 
 AppRegistry.registerComponent(appName, () => App);
