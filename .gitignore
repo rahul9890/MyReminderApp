@@ -33,6 +33,13 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+
+# Release signing — never commit
+android/app/release.keystore
+android/keystore.properties
+android/app/keystore.properties
+# Real MYAPP_RELEASE_* values belong in ~/.gradle/gradle.properties (outside this repo),
+# not in android/gradle.properties.
 .kotlin/
 
 # node.js
@@ -65,6 +72,15 @@ yarn-error.log
 
 # testing
 /coverage
+
+# Claude Code local settings (machine-specific, not for version control)
+.claude/
+android/.claude/
+
+# React Native build artifacts generated into src tree
+android/app/src/main/assets/
+android/app/src/main/res/drawable-mdpi/
+android/app/src/main/res/raw/keep.xml
 
 # Yarn
 .yarn/*

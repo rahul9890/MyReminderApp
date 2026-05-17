@@ -32,7 +32,7 @@ function App() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track if we've done initial scheduling so we don't double-schedule on mount
+  // Trackdfsdfdsf if we've done initial scheduling so we don't double-schedule on mount
   const didSchedule = useRef(false);
 
   // ── On mount: load data, request permissions, and kick off the alarm chain ─
