@@ -58,6 +58,11 @@
           android:name=".ReminderReceiver"
           android:exported="false"/>
 
+      <!-- Empty-list nudge alarm (9 AM–9 PM every 2 hours when no tasks) -->
+      <receiver
+          android:name=".DailyNudgeReceiver"
+          android:exported="false"/>
+
       <!-- Reschedules alarm after device reboot -->
       <receiver
           android:name=".BootReceiver"

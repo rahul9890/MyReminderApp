@@ -11,11 +11,11 @@ object DailyNudgeScheduler {
 
     private const val REQUEST_CODE = 2002
     private const val NUDGE_INTERVAL_MS = 2 * 60 * 60 * 1000L
-    private const val NUDGE_START_HOUR = 10
-    private const val NUDGE_END_HOUR = 19 // 7 PM
+    const val NUDGE_START_HOUR = 9
+    const val NUDGE_END_HOUR = 21 // 9 PM
 
     @JvmStatic
-    fun scheduleFor10AM(context: Context) {
+    fun scheduleForStartHour(context: Context) {
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, NUDGE_START_HOUR)
             set(Calendar.MINUTE, 0)
@@ -40,7 +40,7 @@ object DailyNudgeScheduler {
         if (nextTime < cutoff.timeInMillis) {
             schedule(context, nextTime)
         } else {
-            scheduleFor10AM(context)
+            scheduleForStartHour(context)
         }
     }
 

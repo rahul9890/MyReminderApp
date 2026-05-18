@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   AppState,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Todo } from './src/types/todo';
@@ -16,6 +17,7 @@ import {
   syncTodosToOverlay,
   saveIntervalToOverlay,
   scheduleAlarm,
+  scheduleDailyNudge,
   getTodosFromOverlay,
   checkOverlayPermission,
   requestOverlayPermission,
@@ -39,12 +41,21 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // 1. Check overlay (draw-over-apps) permission — needed for the popup
-        const hasOverlay = await checkOverlayPermission();
-        if (!hasOverlay) requestOverlayPermission();
-
-        // 2. Setup notification channel + permission
+        // 1. Ask for notification permission first (quick in-app system dialog),
+        //    then chain the overlay rationale so both prompts feel like one flow.
         await setupNotifications();
+
+        const hasOverlay = await checkOverlayPermission();
+        if (!hasOverlay) {
+          Alert.alert(
+            'Allow display over other apps',
+            'My Reminders needs permission to show your tasks as a floating popup over other apps. Tap Open Settings and enable "Display over other apps".',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => requestOverlayPermission() },
+            ],
+          );
+        }
 
         // 3. Load saved data
         const [savedTodos, savedInterval] = await Promise.all([
@@ -90,6 +101,7 @@ function App() {
     syncTodosToOverlay(todoList);
     saveIntervalToOverlay(hours, minutes, seconds);
     scheduleAlarm();
+    scheduleDailyNudge();
   }, [isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── When interval changes: update SharedPreferences and reschedule now ─────

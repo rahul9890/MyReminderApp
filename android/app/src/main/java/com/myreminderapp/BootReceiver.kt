@@ -10,7 +10,7 @@ class BootReceiver : BroadcastReceiver() {
         if (action == Intent.ACTION_BOOT_COMPLETED ||
             action == "android.intent.action.QUICKBOOT_POWERON") {
             ReminderScheduler.scheduleNext(context)
-            DailyNudgeScheduler.scheduleFor10AM(context)
+            DailyNudgeScheduler.scheduleForStartHour(context)
         }
     }
 }

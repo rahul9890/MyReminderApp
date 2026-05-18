@@ -25,15 +25,13 @@ class DailyNudgeReceiver : BroadcastReceiver() {
         val isEmpty = try { JSONArray(todosJson).length() == 0 } catch (e: Exception) { true }
 
         if (!isEmpty) {
-            // User has tasks — reset chain for 10 AM tomorrow
-            DailyNudgeScheduler.scheduleFor10AM(context)
+            DailyNudgeScheduler.scheduleForStartHour(context)
             return
         }
 
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        if (hour < 10 || hour >= 19) {
-            // Outside 10 AM–7 PM window — reschedule for 10 AM tomorrow
-            DailyNudgeScheduler.scheduleFor10AM(context)
+        if (hour < DailyNudgeScheduler.NUDGE_START_HOUR || hour >= DailyNudgeScheduler.NUDGE_END_HOUR) {
+            DailyNudgeScheduler.scheduleForStartHour(context)
             return
         }
 

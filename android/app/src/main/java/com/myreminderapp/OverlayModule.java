@@ -51,7 +51,7 @@ public class OverlayModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void scheduleDailyNudge() {
-        DailyNudgeScheduler.scheduleFor10AM(getReactApplicationContext());
+        DailyNudgeScheduler.scheduleForStartHour(getReactApplicationContext());
     }
 
     @ReactMethod
